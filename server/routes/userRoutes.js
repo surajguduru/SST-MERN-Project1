@@ -22,7 +22,7 @@ router.post("/register", async (req, res) => {
 });
 
 router.post("/login", async (req, res) => {
-    const userExists = await User.findOne({ email: req.body.email });
+    const userExists = await User.findOne({email: req.body.email});
     if (!userExists) {
         return res.status(400).send("User does not exist in our database. Kindly register first.");
     }
