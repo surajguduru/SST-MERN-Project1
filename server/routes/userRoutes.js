@@ -1,38 +1,95 @@
 const express = require("express");
 const User = require("../models/userModel");
 const bcrypt = require("bcrypt");
+const authMiddleware = require("../middlewares/authMiddleWare");
+const jwt = require('jsonwebtoken')
+
+
+
 const router = express.Router();
 
 router.post("/register", async (req, res) => {
-    try {
-        const userExists = await User.findOne({ email: req.body.email });
-        if (userExists) return res.status(400).send("User already exists");
+  try {
+    const userExists = await User.findOne({ email: req.body.email });
 
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(req.body.password, salt);
-        req.body.password = hashedPassword;
+    if (userExists) {
+      res.send({
+        success: false,
+        message: "User Already Exists",
+      });
+    }
 
-        const newUser = new User(req.body);
-        await newUser.save();
-        res.status(200).send("User registered successfully");
-    }
-    catch (err) {
-        res.status(400).send(err);
-    }
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(req.body.password, salt);
+    req.body.password = hashedPassword;
+
+    const newUser = new User(req.body);
+    await newUser.save();
+
+    res.send({
+      success: true,
+      message: "You've successfully signed up, please login now!",
+    });
+  } catch (error) {
+    res.send(error);
+  }
 });
 
 router.post("/login", async (req, res) => {
-    const userExists = await User.findOne({email: req.body.email});
-    if (!userExists) {
-        return res.status(400).send("User does not exist in our database. Kindly register first.");
+  try {
+    const user = await User.findOne({ email: req.body.email });
+
+    if (!user) {
+      res.send({
+        success: false,
+        message: "User Does not exist , please register",
+      });
     }
 
-    const validPassword = await bcrypt.compare(req.body.password, userExists.password);
+    const validPassword = await bcrypt.compare(
+      req.body.password,
+      user.password
+    );
+
     if (!validPassword) {
-        return res.status(400).send("Invalid password")
+      return res.send({
+        success: false,
+        message: "Invalid Password",
+      });
     }
 
-    res.status(200).send(`Welcome ${userExists.name} to our website! You are now logged in.`);
+    const token = jwt.sign({userId : user._id} ,process.env.JWT_SECRET , {expiresIn:"1d"}   )
+
+    
+
+    res.send({
+      success: true,
+      message: "You've successfully logged in!",
+      token: token,
+    });
+  } catch (error) {
+    console.error(error);
+  }
 });
+
+router.get('/get-current-user',authMiddleware , async(req , res)=>{
+  try {
+    const user = await User.findById(req.body.userId).select('-password')
+  res.send({
+    success : true,
+    message : 'You are Authorized',
+    data :user
+  })
+    
+  } catch (error) {
+    res.send({
+      success : false,
+      message : 'not authorized'
+    })
+  }
+  
+
+
+} )
 
 module.exports = router;
